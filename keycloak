@@ -1,0 +1,92 @@
+---
+  apiVersion: "apps/v1"
+  kind: "Deployment"
+  metadata:
+    name: "keycloak"
+  spec:
+    selector:
+      matchLabels:
+        app: "keycloak"
+    replicas: 1
+    strategy:
+      type: "RollingUpdate"
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 1
+    minReadySeconds: 5
+    template:
+      metadata:
+        labels:
+          app: "keycloak"
+      spec:
+        containers:
+          -
+            name: "keycloak"
+            image: "quay.io/keycloak/keycloak:15.0.0"
+            imagePullPolicy: "Always"
+            env:
+              -
+                name: "KEYCLOAK_USER"
+                value: "admin"
+
+              -
+                name: "KEYCLOAK_PASSWORD"
+                value: "admin"
+              - name: DB_VENDOR
+                value: POSTGRES
+              - name: DB_ADDR
+                value: postgresql.keycloak-2.svc.cluster.local
+              - name: DB_PORT
+                value: '5432'
+              - name: DB_DATABASE
+                value: keycloak
+              - name: DB_USER
+                value: psql
+              - name: DB_PASSWORD
+                value: psql
+
+
+            ports:
+
+              - name: "http"
+                containerPort: 8080
+
+              - name: "https"
+                containerPort: 8443
+            readinessProbe:
+               httpGet:
+                 path: "/auth/realms/master"
+                 port: 8080
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: keycloak-service
+  namespace: keycloak-2
+spec:
+  clusterIP: 172.30.8.178
+  externalTrafficPolicy: Cluster
+  ipFamilies:
+    - IPv4
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+      nodePort: 30616
+    - name: https
+      protocol: TCP
+      port: 8443
+      targetPort: 8443
+      nodePort: 31616
+  internalTrafficPolicy: Cluster
+  clusterIPs:
+    - 172.30.8.178
+  type: NodePort
+  ipFamilyPolicy: SingleStack
+  sessionAffinity: None
+  selector:
+    app: keycloak
+status:
+  loadBalancer: {}
+
